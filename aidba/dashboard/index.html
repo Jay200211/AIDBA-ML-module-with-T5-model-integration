@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AIDBA - Autonomous Database Administrator</title>
+<style>
+  :root {
+    --bg: #0e1117; --card: #161b22; --text: #c9d1d9; --muted: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149; --orange: #d29922;
+    --border: #30363d; --shadow: rgba(0, 0, 0, 0.5);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    padding: 16px 24px; background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 100;
+  }
+  h1 { margin: 0; font-size: 18px; }
+  h1 span { color: var(--accent); }
+  .grid {
+    display: grid; gap: 16px; padding: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+  }
+  .card h2 {
+    margin: 0 0 12px; font-size: 13px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .pill.ok { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .pill.bad { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+  .pill.warn { background: rgba(210, 153, 34, 0.15); color: var(--orange); }
+  .pill.info { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+  .pill.crit { background: rgba(248, 81, 73, 0.3); color: #ff6b6b; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  input, button, textarea {
+    background: #0d1117; color: var(--text); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 6px; font-size: 13px; font-family: inherit;
+  }
+  button { background: var(--accent); color: #0d1117; cursor: pointer; border: none; font-weight: 600; }
+  button:hover { opacity: 0.85; }
+  button.secondary { background: var(--border); color: var(--text); }
+  button.success { background: var(--green); color: #0d1117; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #21262d; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; background: #0d1117; }
+  .scroll { max-height: 400px; overflow: auto; }
+  .empty { color: var(--muted); font-style: italic; padding: 12px 0; }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 1000; align-items: center; justify-content: center; }
+  .modal.show { display: flex; }
+  .modal-content {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 24px; max-width: 500px; width: 90%;
+    max-height: 90vh; overflow: auto;
+  }
+  .modal-content h2 { margin: 0 0 16px; color: var(--accent); }
+  .form-grid { display: grid; gap: 10px; }
+  .form-row { display: flex; flex-direction: column; gap: 4px; }
+  .form-row label { font-size: 12px; color: var(--muted); }
+  .chat-messages { background: #0d1117; padding: 12px; border-radius: 6px; min-height: 100px; max-height: 500px; overflow: auto; font-size: 13px; }
+  .chat-message { margin-bottom: 12px; padding: 10px; border-radius: 6px; }
+  .chat-message.user { background: rgba(88, 166, 255, 0.1); border-left: 3px solid var(--accent); }
+  .chat-message.bot { background: rgba(63, 185, 80, 0.1); border-left: 3px solid var(--green); }
+  .chat-message pre { max-height: 300px; overflow: auto; background: #0d1117; padding: 8px; border-radius: 4px; font-size: 11px; }
+  .result-box { background: #0d1117; padding: 10px; border-radius: 6px; margin-top: 10px; font-family: ui-monospace, monospace; font-size: 12px; min-height: 40px; white-space: pre-wrap; }
+  .result-box.success { border-left: 3px solid var(--green); }
+  .result-box.error { border-left: 3px solid var(--red); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
+  code { background: #0d1117; padding: 2px 6px; border-radius: 3px; color: #a5d6ff; }
+  .alert-bell { position: relative; cursor: pointer; padding: 8px 12px; border-radius: 6px; background: rgba(88, 166, 255, 0.1); font-size: 18px; }
+  .alert-bell:hover { background: rgba(88, 166, 255, 0.2); }
+  .alert-bell .badge { position: absolute; top: -4px; right: -4px; background: var(--red); color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; font-weight: bold; min-width: 18px; text-align: center; }
+  .alert-bell.has-critical { animation: pulse 1.5s infinite; }
+  .alert-panel { display: none; position: fixed; top: 70px; right: 24px; width: 450px; max-height: 600px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px var(--shadow); z-index: 200; flex-direction: column; }
+  .alert-panel.show { display: flex; }
+  .alert-panel-header { padding: 12px 16px; background: #0d1117; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .alert-panel-header h3 { margin: 0; font-size: 14px; }
+  .alert-panel-body { flex: 1; overflow-y: auto; max-height: 500px; }
+  .alert-item { padding: 12px 16px; border-bottom: 1px solid #21262d; cursor: pointer; }
+  .alert-item:hover { background: rgba(88, 166, 255, 0.05); }
+  .alert-item.unread { background: rgba(88, 166, 255, 0.03); }
+  .alert-item.crit { border-left: 3px solid var(--red); }
+  .alert-item.warn { border-left: 3px solid var(--orange); }
+  .alert-item.info { border-left: 3px solid var(--accent); }
+  .alert-item.periodic { border-left: 3px solid var(--green); }
+  .alert-title { font-weight: 600; font-size: 13px; }
+  .alert-msg { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .alert-time { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .toast-container { position: fixed; top: 80px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; max-width: 400px; }
+  .toast { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 6px; padding: 12px 16px; box-shadow: 0 4px 12px var(--shadow); animation: slideIn 0.3s ease-out; cursor: pointer; }
+  .toast.crit { border-left-color: var(--red); }
+  .toast.warn { border-left-color: var(--orange); }
+  .toast.periodic { border-left-color: var(--green); }
+  @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .toast-title { font-weight: 600; font-size: 13px; }
+  .toast-msg { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .toast-time { font-size: 10px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗄️ <span>AIDBA</span> — Autonomous Database Administrator</h1>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span id="conn-status"><span class="pill ok">Live</span></span>
+    <div class="alert-bell" id="alert-bell" onclick="toggleAlertPanel()">
+      🔔 <span class="badge" id="alert-badge" style="display:none;">0</span>
+    </div>
+    <button onclick="showAddDbModal()" class="success">+ Add Database</button>
+  </div>
+</header>
+
+<div class="toast-container" id="toast-container"></div>
+
+<div class="alert-panel" id="alert-panel">
+  <div class="alert-panel-header">
+    <h3>🔔 Alerts & Notifications</h3>
+    <div>
+      <button class="secondary" onclick="markAllRead()" style="padding:4px 10px;font-size:11px;">Mark all read</button>
+      <button class="secondary" onclick="clearAlerts()" style="padding:4px 10px;font-size:11px;">Clear</button>
+      <button class="secondary" onclick="toggleAlertPanel()" style="padding:4px 10px;font-size:11px;">×</button>
+    </div>
+  </div>
+  <div class="alert-panel-body" id="alert-list">
+    <div class="empty" style="padding:20px;text-align:center;">No alerts yet</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>📊 Database Health</h2>
+    <div id="health-list">Loading…</div>
+  </div>
+  <div class="card">
+    <h2>🔌 Connected Databases</h2>
+    <div id="db-list">Loading…</div>
+  </div>
+  <div class="card">
+    <h2>📈 Performance Metrics (Live)
+      <button class="secondary" onclick="exportMetrics()">📥 Export CSV</button>
+    </h2>
+    <div class="scroll">
+      <table id="metrics-tbl">
+        <thead><tr><th>Timestamp</th><th>DB</th><th>Metric</th><th>Value</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2>🐌 Slow Queries
+      <button class="secondary" onclick="exportSlow()">📥 Export CSV</button>
+    </h2>
+    <div class="scroll">
+      <table id="slow-tbl">
+        <thead><tr><th>DB</th><th>Avg ms</th><th>Calls</th><th>Query</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card" style="grid-column: 1 / -1;">
+    <h2>💬 Ask AIDBA (LLM-Driven)</h2>
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-message bot">
+        <strong>🤖 AIDBA:</strong> Hi! Try: "list tables", "show customers", "health", "performance", "slow queries"
+      </div>
+    </div>
+    <div style="display: flex; gap: 8px; margin-top: 10px;">
+      <input type="text" id="nlq-q" placeholder="Ask in plain English..." style="flex: 1;" onkeydown="if(event.key==='Enter')ask()">
+      <button onclick="ask()">Ask</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>🔒 Security Audit Log
+      <button class="secondary" onclick="exportAudit()">📥 Export CSV</button>
+    </h2>
+    <div class="scroll" id="audit-log" style="max-height: 300px;">Loading…</div>
+  </div>
+  <div class="card">
+    <h2>🎯 Optimization Proposals</h2>
+    <div id="proposals">Loading…</div>
+  </div>
+</div>
+
+<div id="addDbModal" class="modal">
+  <div class="modal-content">
+    <h2>🔌 Add Database Connection</h2>
+    <div class="form-grid">
+      <div class="form-row"><label>Connection Name (unique)</label>
+        <input type="text" id="db-name" placeholder="my-sqlserver"></div>
+      <div class="form-row"><label>Database Type</label>
+        <select id="db-type" onchange="updateDefaults()">
+          <option value="sqlserver">SQL Server (SSMS)</option>
+          <option value="mysql">MySQL</option>
+          <option value="postgresql">PostgreSQL</option>
+        </select></div>
+      <div class="form-row"><label>Host</label>
+        <input type="text" id="db-host" placeholder="localhost" value="localhost"></div>
+      <div class="form-row"><label>Port</label>
+        <input type="number" id="db-port" placeholder="1433" value="1433"></div>
+      <div class="form-row"><label>Database Name</label>
+        <input type="text" id="db-database" placeholder="master" value="master"></div>
+      <div class="form-row"><label>Username (empty for Windows Auth)</label>
+        <input type="text" id="db-username" placeholder="sa"></div>
+      <div class="form-row"><label>Password (empty for Windows Auth)</label>
+        <input type="password" id="db-password" placeholder="••••••••"></div>
+    </div>
+    <div class="actions">
+      <button onclick="testConnection()" class="secondary">🔍 Test Connection</button>
+      <button onclick="saveDatabase()" class="success">💾 Save & Connect</button>
+      <button onclick="closeAddDbModal()" class="danger">Cancel</button>
+    </div>
+    <div id="test-result" class="result-box" style="display: none;"></div>
+  </div>
+</div>
+
+<script>
+// =================== ALERT SYSTEM ===================
+let alerts = [];
+const STORAGE_KEY = "aidba_alerts";
+const READ_KEY = "aidba_alerts_read";
+const ALERT_INTERVAL_MS = 20 * 60 * 1000;  // 20 MINUTES
+const METRIC_COOLDOWN_MS = 20 * 60 * 1000; // 20 MINUTES for metric alerts
+let lastPeriodicAlert = localStorage.getItem("aidba_last_periodic");
+let lastMetricAlertTime = {};  // Track last alert time per metric
+
+function loadAlerts() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const readIds = JSON.parse(localStorage.getItem(READ_KEY) || "[]");
+    if (stored) {
+      alerts = JSON.parse(stored);
+      alerts.forEach(a => { a.read = !readIds.includes(a.id); });
+      updateAlertBadge();
+    }
+  } catch (e) {}
+}
+
+function saveAlerts() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(alerts.slice(0, 100)));
+    const readIds = alerts.filter(a => a.read).map(a => a.id);
+    localStorage.setItem(READ_KEY, JSON.stringify(readIds));
+  } catch (e) {}
+}
+
+function addAlert(alert) {
+  alert.id = alert.id || (Date.now() + "-" + Math.random().toString(36).slice(2, 8));
+  alert.read = alert.read || false;
+  alert.timestamp = alert.timestamp || new Date().toISOString();
+  alerts.unshift(alert);
+  if (alerts.length > 100) alerts = alerts.slice(0, 100);
+  saveAlerts();
+  updateAlertBadge();
+  renderAlerts();
+  if (alert.severity !== "info") showToast(alert);
+}
+
+function showToast(alert) {
+  const container = $("toast-container");
+  const existing = container.querySelectorAll(`.toast.${alert.severity || 'info'}`);
+  if (existing.length > 2) existing[0].remove();
+  const toast = document.createElement("div");
+  toast.className = `toast ${alert.severity || "info"}`;
+  const icon = alert.severity === "crit" ? "🚨" : alert.severity === "warn" ? "⚠️" : "📊";
+  toast.innerHTML = `<div class="toast-title">${icon} ${alert.title}</div>
+    <div class="toast-msg">${alert.message || ""}</div>
+    <div class="toast-time">📅 ${formatTimestamp(alert.timestamp)}</div>`;
+  toast.onclick = () => { toast.remove(); openAlertPanel(); };
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) { toast.style.animation = "slideIn 0.3s reverse"; setTimeout(() => toast.remove(), 300); }}, 12000);
+}
+
+function updateAlertBadge() {
+  const unread = alerts.filter(a => !a.read).length;
+  const badge = $("alert-badge");
+  const bell = $("alert-bell");
+  if (unread > 0) {
+    badge.style.display = "inline-block";
+    badge.textContent = unread > 99 ? "99+" : unread;
+    if (alerts.some(a => !a.read && a.severity === "crit")) bell.classList.add("has-critical");
+    else bell.classList.remove("has-critical");
+  } else { badge.style.display = "none"; bell.classList.remove("has-critical"); }
+}
+
+function renderAlerts() {
+  const list = $("alert-list");
+  if (alerts.length === 0) { list.innerHTML = '<div class="empty" style="padding:20px;text-align:center;">No alerts yet</div>'; return; }
+  list.innerHTML = alerts.map(a => {
+    const icon = a.severity === 'crit' ? '🚨' : a.severity === 'warn' ? '⚠️' : a.severity === 'periodic' ? '📊' : 'ℹ️';
+    return `<div class="alert-item ${a.severity || 'info'} ${a.read ? '' : 'unread'}" onclick="toggleAlertRead('${a.id}')">
+      <div class="alert-title">${icon} ${a.title}</div>
+      <div class="alert-msg">${a.message || ''}</div>
+      <div class="alert-time">📅 ${formatTimestamp(a.timestamp)} ${a.db_name ? '· 🗄️ ' + a.db_name : ''}</div>
+      ${!a.read ? `<div class="alert-actions"><button class="secondary" onclick="event.stopPropagation();markRead('${a.id}')">Mark read</button></div>` : ''}
+    </div>`;
+  }).join("");
+}
+
+function toggleAlertRead(id) { const a = alerts.find(x => x.id === id); if (a) { a.read = !a.read; saveAlerts(); updateAlertBadge(); renderAlerts(); } }
+function markRead(id) { const a = alerts.find(x => x.id === id); if (a) { a.read = true; saveAlerts(); updateAlertBadge(); renderAlerts(); } }
+function markAllRead() { alerts.forEach(a => { a.read = true; }); saveAlerts(); updateAlertBadge(); renderAlerts(); }
+function clearAlerts() { if (confirm("Clear all alerts?")) { alerts = []; saveAlerts(); updateAlertBadge(); renderAlerts(); } }
+function toggleAlertPanel() { $("alert-panel").classList.toggle("show"); }
+function openAlertPanel() { $("alert-panel").classList.add("show"); }
+function formatTimestamp(ts) {
+  if (!ts) return "—";
+  try { return new Date(ts).toLocaleString("en-US", { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }); } catch { return ts; }
+}
+const $ = id => document.getElementById(id);
+
+// =================== 20-MINUTE PERIODIC ALERT ===================
+function checkPeriodicAlert() {
+  const now = Date.now();
+  const lastTime = lastPeriodicAlert ? parseInt(lastPeriodicAlert) : 0;
+  if (lastTime === 0 || (now - lastTime) >= ALERT_INTERVAL_MS) {
+    sendPeriodicAlert();
+    lastPeriodicAlert = now.toString();
+    try { localStorage.setItem("aidba_last_periodic", lastPeriodicAlert); } catch {}
+  }
+}
+
+function sendPeriodicAlert() {
+  fetch("/api/metrics?since_min=5").then(r => r.json()).then(data => {
+    const rows = data.rows || [];
+    const stats = { total: rows.length, cpu: 0, cache: 0, maxconn: 0, dbs: new Set() };
+    rows.forEach(m => {
+      if (m.db_name) stats.dbs.add(m.db_name);
+      if (m.metric === "cpu_usage_pct" && typeof m.value === 'number') stats.cpu = Math.max(stats.cpu, m.value);
+      if (m.metric === "cache_hit_ratio" && typeof m.value === 'number') stats.cache = (stats.cache + m.value) / 2;
+      if (m.metric === "active_connections" && typeof m.value === 'number') stats.maxconn = Math.max(stats.maxconn, m.value);
+    });
+    addAlert({ severity: "periodic", title: "📊 20-Minute System Health Check",
+      message: `${stats.dbs.size} DB(s) monitored | ${stats.total} metrics | CPU: ${stats.cpu.toFixed(1)}% | Cache: ${stats.cache.toFixed(1)}% | Conns: ${stats.maxconn}`,
+      timestamp: new Date().toISOString() });
+  }).catch(() => {});
+}
+
+// =================== METRIC ALERTS WITH 20-MIN COOLDOWN ===================
+const THRESHOLDS = {
+  cpu_usage_pct: { warn: 70, crit: 90 },
+  active_connections: { warn: 50, crit: 100 },
+  running_sessions: { warn: 20, crit: 50 },
+  slow_queries_count: { warn: 5, crit: 20 },
+  buffer_cache_mb: { warn: 1000, crit: 500, type: "low" }
+};
+
+function checkMetricAlerts(metrics) {
+  const now = Date.now();
+  metrics.forEach(m => {
+    const threshold = THRESHOLDS[m.metric];
+    if (!threshold) return;
+    const value = parseFloat(m.value);
+    if (isNaN(value)) return;
+    // 20-minute cooldown per metric
+    const cooldownKey = `${m.db_name}::${m.metric}`;
+    if (lastMetricAlertTime[cooldownKey] && (now - lastMetricAlertTime[cooldownKey]) < METRIC_COOLDOWN_MS) return;
+    let severity = null, message = "";
+    if (threshold.type === "low") {
+      if (value < threshold.crit) { severity = "crit"; message = `${m.metric} critically low: ${value} (threshold: ${threshold.crit})`; }
+      else if (value < threshold.warn) { severity = "warn"; message = `${m.metric} low: ${value} (threshold: ${threshold.warn})`; }
+    } else {
+      if (value >= threshold.crit) { severity = "crit"; message = `${m.metric} critically high: ${value} (threshold: ${threshold.crit})`; }
+      else if (value >= threshold.warn) { severity = "warn"; message = `${m.metric} high: ${value} (threshold: ${threshold.warn})`; }
+    }
+    if (severity) {
+      addAlert({ severity, title: `${severity === "crit" ? "🚨 Critical" : "⚠️ Warning"}: ${m.metric}`,
+        message, timestamp: m.ts || new Date().toISOString(), db_name: m.db_name, metric: m.metric, value });
+      lastMetricAlertTime[cooldownKey] = now;
+    }
+  });
+}
+
+function checkSecurityAlerts(auditEvents) {
+  auditEvents.filter(a => a.event_type && (a.event_type.includes("security") || a.event_type.includes("destructive"))).slice(0, 5).forEach(event => {
+    const alertId = `sec-${event.id}`;
+    if (alerts.find(a => a.id === alertId)) return;
+    let p = {};
+    try { p = typeof event.payload === "string" ? JSON.parse(event.payload) : event.payload; } catch {}
+    addAlert({ id: alertId, severity: "crit", title: "🔒 Security: " + (p.operation || event.event_type),
+      message: p.user_question || p.sql || "Destructive operation detected", timestamp: event.ts, db_name: event.db_name });
+  });
+}
+
+// =================== EXISTING FUNCTIONS ===================
+function updateDefaults() {
+  const t = $("db-type").value;
+  const d = {sqlserver:{port:1433,database:"master"}, mysql:{port:3306,database:"mysql"}, postgresql:{port:5432,database:"postgres"}};
+  $("db-port").value = d[t].port;
+  $("db-database").value = d[t].database;
+}
+function showAddDbModal() { $("addDbModal").classList.add("show"); $("test-result").style.display = "none"; }
+function closeAddDbModal() { $("addDbModal").classList.remove("show"); }
+
+async function testConnection() {
+  const r = $("test-result");
+  r.style.display = "block"; r.className = "result-box"; r.textContent = "⏳ Testing...";
+  try {
+    const x = await fetch("/api/test_connection", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ type: $("db-type").value, host: $("db-host").value, port: parseInt($("db-port").value),
+        database: $("db-database").value, username: $("db-username").value, password: $("db-password").value })
+    }).then(r => r.json());
+    r.className = x.ok ? "result-box success" : "result-box error";
+    r.textContent = x.ok ? `✅ Connected!\nDriver: ${x.driver}\nVersion: ${x.version}\nAuth: ${x.auth}` : `❌ Failed:\n${x.error}`;
+  } catch (e) { r.className = "result-box error"; r.textContent = "❌ " + e; }
+}
+
+async function saveDatabase() {
+  const name = $("db-name").value.trim();
+  if (!name) { alert("Enter a name"); return; }
+  try {
+    const x = await fetch("/api/add_database", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ name, type: $("db-type").value, host: $("db-host").value, port: parseInt($("db-port").value),
+        database: $("db-database").value, username: $("db-username").value, password: $("db-password").value })
+    }).then(r => r.json());
+    if (x.ok) { alert("✅ " + x.message); closeAddDbModal(); } else { alert("❌ " + x.error); }
+  } catch (e) { alert("❌ " + e); }
+}
+
+async function loadHealth() {
+  try {
+    const r = await fetch("/api/health").then(r => r.json());
+    const dbs = r.databases || {};
+    if (Object.keys(dbs).length === 0) { $("health-list").innerHTML = '<div class="empty">No databases connected.</div>'; return; }
+    Object.entries(dbs).forEach(([n,h]) => {
+      if (!h.ok) addAlert({ id: `db-down-${n}-${Date.now()}`, severity: "crit",
+        title: `🚨 Database Down: ${n}`, message: h.error || "Not responding",
+        timestamp: new Date().toISOString(), db_name: n });
+    });
+    $("health-list").innerHTML = Object.entries(dbs).map(([n,h]) =>
+      `<div style="margin-bottom: 8px;"><span class="pill ${h.ok?'ok':'bad'}">${h.ok ? '✓ Connected' : '✗ Failed'}</span>
+       <b>${n}</b><div style="color: var(--muted); font-size: 11px; margin-top: 4px;">${(h.version||h.error||'').slice(0,100)}</div></div>`).join("");
+  } catch(e) {}
+}
+
+async function loadDbs() {
+  try {
+    const r = await fetch("/api/dbs").then(r => r.json());
+    if (!r.databases || r.databases.length === 0) { $("db-list").innerHTML = '<div class="empty">No databases configured.</div>'; return; }
+    $("db-list").innerHTML = r.databases.map(n => {
+      const h = r.health[n] || {};
+      return `<div style="padding: 6px 0; border-bottom: 1px solid var(--border);">
+        <span class="pill ${h.ok?'ok':'bad'}">${h.ok ? 'Connected' : 'Failed'}</span> <b>${n}</b>
+        <div style="color: var(--muted); font-size: 11px;">${(h.version||h.error||'').slice(0,80)}</div></div>`;
+    }).join("");
+  } catch(e) {}
+}
+
+async function loadMetrics() {
+  try {
+    const r = await fetch("/api/metrics?since_min=60").then(r => r.json());
+    const rows = r.rows || [];
+    if (rows.length === 0) { $("metrics-tbl").querySelector("tbody").innerHTML = '<tr><td colspan="4" style="color:var(--muted);padding:12px;text-align:center;">No metrics yet.</td></tr>'; return; }
+    checkMetricAlerts(rows);
+    const sorted = rows.sort((a,b) => (b.ts||"").localeCompare(a.ts||"")).slice(0, 50);
+    $("metrics-tbl").querySelector("tbody").innerHTML = sorted.map(m => {
+      const ts = (m.ts||"").slice(11, 19);
+      const val = typeof m.value === 'number' ? m.value.toFixed(2) : m.value;
+      return `<tr><td style="font-family:monospace;color:var(--muted);">${formatTimestamp(m.ts)}</td>
+        <td><b style="color:var(--green);">${m.db_name||""}</b></td>
+        <td>${m.metric||""}</td>
+        <td style="text-align:right;font-weight:600;color:var(--accent);">${val}</td></tr>`;
+    }).join("");
+  } catch(e) {}
+}
+
+async function loadSlow() {
+  try {
+    const r = await fetch("/api/slow_queries?limit=10").then(r => r.json());
+    if (!r.rows || r.rows.length === 0) { $("slow-tbl").querySelector("tbody").innerHTML = '<tr><td colspan="4" class="empty">No slow queries detected yet.</td></tr>'; return; }
+    $("slow-tbl").querySelector("tbody").innerHTML = r.rows.map(q =>
+      `<tr><td>${q.db_name||""}</td><td><b>${(q.avg_ms||0).toFixed(1)}</b></td>
+       <td>${q.exec_count||""}</td>
+       <td><div style="font-family:monospace;font-size:11px;max-width:500px;overflow:hidden;text-overflow:ellipsis;">${(q.query_text||"").slice(0,100)}</div></td></tr>`).join("");
+  } catch(e) {}
+}
+
+async function loadProposals() {
+  try {
+    const r = await fetch("/api/proposals").then(r => r.json());
+    if (!r.proposals || r.proposals.length === 0) { $("proposals").innerHTML = '<div class="empty">No optimization proposals yet.</div>'; return; }
+    $("proposals").innerHTML = r.proposals.slice(0,5).map(p => {
+      const cls = p.state === "Completed" ? "ok" : (p.state === "RolledBack" || p.state === "Rejected") ? "bad" : "warn";
+      return `<div style="border-top: 1px solid var(--border); padding: 8px 0;">
+        <span class="pill ${cls}">${p.state}</span> <b>${p.title}</b>
+        <div style="color: var(--muted); font-size: 11px;">📅 ${formatTimestamp(p.ts)} · 🗄️ ${p.db_name}</div></div>`;
+    }).join("");
+  } catch(e) {}
+}
+
+async function loadAudit() {
+  try {
+    const r = await fetch("/api/audit?limit=20").then(r => r.json());
+    if (!r.rows || r.rows.length === 0) { $("audit-log").innerHTML = '<div class="empty">No audit events yet.</div>'; return; }
+    checkSecurityAlerts(r.rows);
+    $("audit-log").innerHTML = r.rows.map(a =>
+      `<div style="border-bottom: 1px solid var(--border); padding: 6px 0; font-size: 11px;">
+        <span class="pill ${a.event_type.includes('security')?'bad':'info'}">${a.event_type}</span>
+        ${a.db_name||""} · <span style="color: var(--muted);">📅 ${formatTimestamp(a.ts)}</span></div>`).join("");
+  } catch(e) {}
+}
+
+async function ask() {
+  const q = $("nlq-q").value.trim();
+  if (!q) return;
+  const messages = $("chat-messages");
+  messages.innerHTML += `<div class="chat-message user"><strong>👤 You:</strong> ${q}</div>`;
+  $("nlq-q").value = "";
+  messages.scrollTop = messages.scrollHeight;
+
+  // Show loading
+  const loadingMsg = document.createElement("div");
+  loadingMsg.className = "chat-message bot";
+  loadingMsg.id = "loading-msg";
+  loadingMsg.innerHTML = `<strong>🤖 AIDBA:</strong> <em>Processing with AI model...</em>`;
+  messages.appendChild(loadingMsg);
+  messages.scrollTop = messages.scrollHeight;
+
+  try {
+    const r = await fetch("/api/nlq", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ question: q })
+    }).then(r => r.json());
+
+    // Remove loading message
+    const loading = document.getElementById("loading-msg");
+    if (loading) loading.remove();
+
+    let html = "";
+    // Summary (always show)
+    const summary = r.summary || "Query completed";
+    html += `<div style="margin-bottom: 10px; font-weight: 500;">${escapeHtml(summary).replace(/\n/g, '<br>')}</div>`;
+
+    // SQL
+    if (r.sql) {
+      html += `<details style="margin: 8px 0;"><summary style="cursor:pointer;color:var(--accent);padding:4px;">📋 View SQL</summary><pre>${escapeHtml(r.sql)}</pre></details>`;
+    }
+
+    // Table data
+    if (r.rows && Array.isArray(r.rows) && r.rows.length > 0) {
+      html += renderTable(r.rows);
+    }
+
+    // Error
+    if (r.error) {
+      html += `<div style="color: var(--red); margin-top: 8px;">❌ ${escapeHtml(r.error)}</div>`;
+    }
+
+    if (!html || html.trim() === "") {
+      html = "No results found.";
+    }
+
+    messages.innerHTML += `<div class="chat-message bot"><strong>🤖 AIDBA:</strong>${html}</div>`;
+    messages.scrollTop = messages.scrollHeight;
+  } catch (e) {
+    const loading = document.getElementById("loading-msg");
+    if (loading) loading.remove();
+    messages.innerHTML += `<div class="chat-message bot"><strong>🤖 AIDBA:</strong> ❌ Error: ${escapeHtml(String(e))}</div>`;
+    messages.scrollTop = messages.scrollHeight;
+  }
+}
+
+function renderTable(rows) {
+  if (!rows || rows.length === 0) return "";
+
+  // Get all unique keys
+  const allKeys = new Set();
+  rows.forEach(r => {
+    if (r && typeof r === 'object') {
+      Object.keys(r).forEach(k => allKeys.add(k));
+    }
+  });
+  const keys = Array.from(allKeys);
+
+  if (keys.length === 0) return "<em>No columns to display</em>";
+
+  let html = '<table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:12px;background:#0d1117;border-radius:6px;overflow:hidden;">';
+  html += '<thead><tr>';
+  keys.forEach(k => {
+    html += `<th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--accent);background:#161b22;color:var(--accent);font-size:11px;text-transform:uppercase;font-weight:600;">${escapeHtml(k)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  rows.slice(0, 50).forEach((row, idx) => {
+    html += `<tr style="background:${idx % 2 === 0 ? '#0d1117' : '#161b22'};">`;
+    keys.forEach(k => {
+      const val = row[k];
+      let display;
+      if (val === null || val === undefined) {
+        display = '<em style="color:var(--muted)">null</em>';
+      } else {
+        display = escapeHtml(String(val));
+      }
+      const isNum = typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val) && String(val).trim() !== '');
+      html += `<td style="padding:8px 12px;border-bottom:1px solid #21262d;text-align:${isNum ? 'right' : 'left'};">${display}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+
+  if (rows.length > 50) {
+    html += `<div style="color:var(--muted);font-size:11px;margin-top:8px;text-align:center;">Showing 50 of ${rows.length} rows</div>`;
+  }
+
+  return html;
+}
+
+
+function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+function exportMetrics() { window.location.href = "/api/export/metrics?hours=24"; }
+function exportSlow() { window.location.href = "/api/export/slow_queries"; }
+function exportAudit() { window.location.href = "/api/export/audit"; }
+
+const es = new EventSource("/api/stream");
+es.addEventListener("tick", () => { $("conn-status").innerHTML = '<span class="pill ok">Live</span>'; loadHealth(); loadDbs(); loadSlow(); loadMetrics(); loadProposals(); loadAudit(); });
+es.onerror = () => $("conn-status").innerHTML = '<span class="pill bad">Offline</span>';
+
+loadAlerts();
+renderAlerts();
+loadHealth(); loadDbs(); loadSlow(); loadMetrics(); loadProposals(); loadAudit();
+checkPeriodicAlert();
+setInterval(checkPeriodicAlert, ALERT_INTERVAL_MS);  // 20 minutes
+setInterval(renderAlerts, 5000);
+document.addEventListener('click', (e) => {
+  const p = $("alert-panel"); const b = $("alert-bell");
+  if (p.classList.contains("show") && !p.contains(e.target) && !b.contains(e.target)) p.classList.remove("show");
+});
+</script>
+</body>
+</html>

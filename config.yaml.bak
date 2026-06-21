@@ -1,0 +1,39 @@
+app:
+  host: 127.0.0.1
+  port: 8000
+  log_level: INFO
+  data_dir: ./data
+monitoring:
+  critical_interval_seconds: 10
+  secondary_interval_seconds: 60
+  slow_query_threshold_ms: 100
+  max_overhead_percent: 2.0
+llm:
+  provider: mock
+  base_url: http://localhost:11434
+  model: deepseek-coder:6.7b
+  timeout_seconds: 120
+  temperature: 0.1
+approval:
+  auto_approve_safe: false
+  rollback_on_p99_regression_pct: 10.0
+storage:
+  metrics_retention_days: 7
+  audit_retention_days: 365
+databases:
+- name: jayendra-sqlserver
+  type: sqlserver
+  host: JAYENDRA\SQLEXPRESS
+  port: 1433
+  database: master
+  username: ''
+  password: ''
+  enabled: true
+- name: db-localhost-4009
+  type: sqlserver
+  host: JAYENDRA\SQLEXPRESS
+  port: 1433
+  database: master
+  username: ''
+  password: ''
+  enabled: true

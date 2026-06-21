@@ -1,0 +1,21 @@
+# Ignore python cache files
+__pycache__/
+*.pyc
+
+# Ignore trained T5 models and evaluation outputs
+models/
+runs/
+evaluation_results.json
+
+# Ignore raw data or processed JSONL datasets
+*.jsonl
+data/
+spider/
+
+# Ignore local SQLite databases and logs
+*.db
+*.sqlite
+*.log
+
+# Ignore local configuration files holding keys/server info
+.env
